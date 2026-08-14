@@ -24,7 +24,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.ServiceConfigurationError;
 
 /**
  * Compiles this project's Souther sources.
@@ -135,11 +134,13 @@ public class SoutherCompileMojo extends AbstractMojo {
         SoutherBuildDriver driver;
         try {
             driver = Toolchains.of(session, version, jars).driver();
-        } catch (RuntimeException | ServiceConfigurationError e) {
+        } catch (RuntimeException e) {
             // What was resolved is not a Souther this plugin can drive: it states another protocol,
             // it declares a driver that is not there, it cannot be read. Every one of them said
             // against the version that was asked for — the message on its own names neither the
-            // project's choice nor where it came from.
+            // project's choice nor where it came from. All of them arrive as exceptions: what a
+            // service declaration raises as an Error is the build API's to turn into one, so that
+            // this catch is all a plugin has to write.
             throw new MojoExecutionException("Souther " + version + ": " + said(e), e);
         }
         BuildResult result;
