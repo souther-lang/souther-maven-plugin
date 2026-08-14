@@ -187,6 +187,33 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- The toolchain below is rebuilt rather than added to. copy-dependencies writes into
+                 whatever is there, so a version bumped without an intervening clean leaves the old
+                 souther-build-driver beside the new one — and ServiceLoader takes the first
+                 declaration it finds, so the tests would verify the old compiler and say they
+                 verified the new one. Declared before it, so it runs first in the same phase. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-clean-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <id>the-toolchain-of-the-last-build-is-not-this-one</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>clean</goal>
+                        </goals>
+                        <configuration>
+                            <excludeDefaultDirectories>true</excludeDefaultDirectories>
+                            <filesets>
+                                <fileset>
+                                    <directory>${project.build.directory}/souther-toolchain</directory>
+                                </fileset>
+                            </filesets>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <!-- A toolchain to load in the tests, standing in for what Maven Resolver hands the
                  plugin at build time: the driver and everything it needs behind it. The build API is
                  copied in with the rest on purpose — the toolchain a build resolves has one, and a

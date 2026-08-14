@@ -290,6 +290,29 @@ class SoutherCompileMojoTest {
     }
 
     /**
+     * The compile is the one thing here that is not this plugin's, and a driver raises for what the
+     * interface it is driven through does not describe — an output directory it cannot write. Left
+     * as it is that reaches Maven as an internal plugin error with a stack trace, and the reader is
+     * not told which Souther was compiling.
+     */
+    @Test
+    void whatTheCompileItselfRaisesIsReportedAgainstThatVersionToo(@TempDir Path dir)
+            throws IOException {
+        Path sources = Files.createDirectories(dir.resolve("src/main/souther"));
+        Files.writeString(sources.resolve("money.sou"), """
+                module shared.money exposing ( Amount )
+                data Amount = Int
+                """);
+        Path whereAFileIsAlready = Files.writeString(dir.resolve("classes"), "not a directory");
+
+        SoutherCompileMojo mojo = mojo(sources, whereAFileIsAlready);
+
+        MojoExecutionException failed = assertThrows(MojoExecutionException.class, mojo::execute);
+
+        assertTrue(failed.getMessage().contains(SoutherRelease.verified()), failed.getMessage());
+    }
+
+    /**
      * A toolchain that cannot be opened is not only one stating the wrong protocol — a service
      * declaration naming a class that is not there raises an error of another kind entirely. Every
      * one of them reaches the build against the version that was asked for, or the reader gets a

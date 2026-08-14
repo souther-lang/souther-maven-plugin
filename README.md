@@ -76,6 +76,10 @@ To compile with another:
 
 or `-Dsouther.version=0.1.0-rc5` for one build.
 
+Move the runtime dependency with it. Generated code calls the runtime of the Souther that produced
+it, so the two are one version — declared apart, the build stops and says which one it was compiling
+with.
+
 The compiler is not on this plugin's class path. What the version names is
 `org.souther-lang:souther-build-driver`, resolved from the repositories your project already uses
 and run behind [`souther-build-api`](https://github.com/souther-lang/souther-build-api) in a class
