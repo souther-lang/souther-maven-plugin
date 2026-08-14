@@ -92,6 +92,31 @@ class SoutherCompileMojoTest {
         assertTrue(Files.exists(classes.resolve("shared/money/Amount.class")));
     }
 
+    /**
+     * Renaming a module takes the old one's classes out of the output, including the {@code $Module}
+     * another project imports it by. The output directory is shared with javac, so this only works
+     * if the state directory the goal hands over is one the compile can keep a record in.
+     */
+    @Test
+    void aRenamedModuleLeavesNothingOfTheOldNameBehind(@TempDir Path dir) throws Exception {
+        Path sources = Files.createDirectories(dir.resolve("src/main/souther"));
+        Path classes = dir.resolve("target/classes");
+        Files.writeString(sources.resolve("money.sou"), """
+                module shared.money exposing ( Amount )
+                data Amount = Int
+                """);
+        built(sources, classes);
+
+        Files.writeString(sources.resolve("money.sou"), """
+                module shared.wallet exposing ( Amount )
+                data Amount = Int
+                """);
+        built(sources, classes);
+
+        assertTrue(Files.exists(classes.resolve("shared/wallet/$Module.class")));
+        assertFalse(Files.exists(classes.resolve("shared/money/$Module.class")));
+    }
+
     /** One build, with the class path Maven would hand it: its own output first. */
     private static void built(Path sources, Path classes) throws Exception {
         SoutherCompileMojo mojo = mojo(sources, classes);
@@ -178,6 +203,7 @@ class SoutherCompileMojoTest {
         mojo.setLog(new SystemStreamLog());
         mojo.sourceDirectory = sources.toFile();
         mojo.outputDirectory = classes.toFile();
+        mojo.stateDirectory = classes.resolveSibling("souther").toFile();
         mojo.compileClasspathElements = new ArrayList<>();
         mojo.languageTag = "en";
         mojo.southerVersion = SoutherRelease.verified();

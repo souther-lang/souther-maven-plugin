@@ -54,6 +54,14 @@ public class SoutherCompileMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project.compileClasspathElements}", readonly = true, required = true)
     List<String> compileClasspathElements;
 
+    /**
+     * Somewhere of the build's own for what the compile keeps between runs — the record of what it
+     * generated, which is how a class it no longer generates is taken back out of an output
+     * directory it shares with javac.
+     */
+    @Parameter(defaultValue = "${project.build.directory}/souther", readonly = true, required = true)
+    File stateDirectory;
+
     /** The language diagnostics are written in. Unset is what a command line naming none gets. */
     @Parameter(property = "souther.lang")
     String languageTag;
@@ -112,7 +120,8 @@ public class SoutherCompileMojo extends AbstractMojo {
             throw new MojoExecutionException("Souther " + version + ": " + e.getMessage(), e);
         }
         BuildResult result = driver.compile(new BuildRequest(
-                List.of(sources), classPath, outputDirectory.toPath(), languageTag));
+                List.of(sources), classPath, outputDirectory.toPath(), stateDirectory.toPath(),
+                languageTag));
         Diagnostics.report(result, getLog());
     }
 
