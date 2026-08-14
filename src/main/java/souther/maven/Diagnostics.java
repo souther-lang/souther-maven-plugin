@@ -29,9 +29,14 @@ final class Diagnostics {
             }
         }
         if (!result.succeeded()) {
-            throw new MojoFailureException(errors == 1
-                    ? "Souther reported 1 error."
-                    : "Souther reported " + errors + " errors.");
+            // A result says the build may not go on and that the compile had something to say. That
+            // any of it was an error is not part of it, and counted as none the one line the reader
+            // is left with would say the build stopped over nothing.
+            throw new MojoFailureException(switch (errors) {
+                case 0 -> "Souther stopped the build without reporting an error.";
+                case 1 -> "Souther reported 1 error.";
+                default -> "Souther reported " + errors + " errors.";
+            });
         }
     }
 }

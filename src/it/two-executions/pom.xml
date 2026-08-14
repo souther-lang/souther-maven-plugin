@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  A project that compiles Souther twice: one execution over a source set of two directories, and
+  another over a directory of its own. Both write into target/classes, and each keeps its record of
+  what it generated somewhere of its own — a record shared between them lists the other execution's
+  modules as generated and no longer written, and the classes of whichever ran first are taken back
+  out before the jar is built.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>org.souther-lang.it</groupId>
+    <artifactId>two-executions</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.souther-lang</groupId>
+            <artifactId>souther-runtime</artifactId>
+            <version>@souther.default.version@</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>@project.groupId@</groupId>
+                <artifactId>@project.artifactId@</artifactId>
+                <version>@project.version@</version>
+                <executions>
+                    <!-- Two directories, one compile: app.orders names shared.money, and only a
+                         compile given both directories resolves it. -->
+                    <execution>
+                        <id>the-model</id>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                            <sourceDirectories>
+                                <sourceDirectory>${project.basedir}/src/main/souther</sourceDirectory>
+                                <sourceDirectory>${project.basedir}/src/extra/souther</sourceDirectory>
+                            </sourceDirectories>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>something-else</id>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                            <sourceDirectories>
+                                <sourceDirectory>${project.basedir}/src/other/souther</sourceDirectory>
+                            </sourceDirectories>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -1,7 +1,6 @@
 package souther.maven;
 
 import souther.build.BuildRequest;
-import souther.build.DriverLoader;
 import souther.build.BuildResult;
 import souther.build.SoutherBuildDriver;
 
@@ -24,13 +23,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.ServiceConfigurationError;
 
 /**
  * Compiles this project's Souther sources.
  *
- * <p>Bound to {@code compile}, and writing where {@code javac} writes, so the project's own jar and
- * its test compilation read the generated classes without being told to. A project with no Souther
- * in it is left alone.
+ * <p>Bound to {@code process-sources}, before {@code javac}, and writing where {@code javac} writes,
+ * so the project's own jar and its test compilation read the generated classes without being told to
+ * and Java written beside the model can name it. A project with no Souther in it is left alone.
  */
 @Mojo(name = "compile",
       // Before javac rather than with it: the generated classes go where javac reads, and Java
@@ -41,10 +41,14 @@ import java.util.List;
       threadSafe = true)
 public class SoutherCompileMojo extends AbstractMojo {
 
-    /** Where the {@code .sou} are. */
-    @Parameter(property = "souther.sourceDirectory",
+    /**
+     * Where the {@code .sou} are. Several of them are one compile rather than one each: a module in
+     * one directory names a module in another, and only a compile that was given both resolves it.
+     * One that is not there is passed over.
+     */
+    @Parameter(property = "souther.sourceDirectories",
                defaultValue = "${project.basedir}/src/main/souther")
-    File sourceDirectory;
+    List<File> sourceDirectories;
 
     /** Where javac writes, because the jar and the test compile both read it. */
     @Parameter(defaultValue = "${project.build.outputDirectory}", readonly = true, required = true)
@@ -58,8 +62,13 @@ public class SoutherCompileMojo extends AbstractMojo {
      * Somewhere of the build's own for what the compile keeps between runs — the record of what it
      * generated, which is how a class it no longer generates is taken back out of an output
      * directory it shares with javac.
+     *
+     * <p>One per execution of the goal. A record says what this execution generated, and two
+     * executions reading one would each find the other's modules listed as generated and no longer
+     * written, and take the other's classes back out.
      */
-    @Parameter(defaultValue = "${project.build.directory}/souther", readonly = true, required = true)
+    @Parameter(defaultValue = "${project.build.directory}/souther/${mojoExecution.executionId}",
+               readonly = true, required = true)
     File stateDirectory;
 
     /** The language diagnostics are written in. Unset is what a command line naming none gets. */
@@ -87,9 +96,16 @@ public class SoutherCompileMojo extends AbstractMojo {
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
-        Path sources = sourceDirectory.toPath();
-        if (!Files.isDirectory(sources)) {
-            getLog().debug("no Souther sources under " + sources);
+        List<Path> sources = new ArrayList<>();
+        for (File each : sourceDirectories) {
+            Path source = each.toPath();
+            if (Files.isDirectory(source)) {
+                sources.add(source);
+            } else {
+                getLog().debug("no Souther sources under " + source);
+            }
+        }
+        if (sources.isEmpty()) {
             return;
         }
         // Maven's compile class path begins with this project's own output, and after one build
@@ -110,19 +126,26 @@ public class SoutherCompileMojo extends AbstractMojo {
         declaresTheRuntimeOf(version);
         ToolchainResolver resolver = toolchain != null ? toolchain
                 : new AetherToolchainResolver(repositorySystem, repositorySession, remoteRepositories);
+        List<Path> jars = resolver.resolve(version);
         SoutherBuildDriver driver;
         try {
-            driver = DriverLoader.over(resolver.resolve(version));
-        } catch (IllegalStateException e) {
-            // What was resolved is not a Souther this plugin can drive. Said against the version
-            // that was asked for: the message on its own names neither the project's choice nor
-            // where it came from.
-            throw new MojoExecutionException("Souther " + version + ": " + e.getMessage(), e);
+            driver = Toolchains.of(version, jars).driver();
+        } catch (RuntimeException | ServiceConfigurationError e) {
+            // What was resolved is not a Souther this plugin can drive: it states another protocol,
+            // it declares a driver that is not there, it cannot be read. Every one of them said
+            // against the version that was asked for — the message on its own names neither the
+            // project's choice nor where it came from.
+            throw new MojoExecutionException("Souther " + version + ": " + said(e), e);
         }
         BuildResult result = driver.compile(new BuildRequest(
-                List.of(sources), classPath, outputDirectory.toPath(), stateDirectory.toPath(),
+                sources, classPath, outputDirectory.toPath(), stateDirectory.toPath(),
                 languageTag));
         Diagnostics.report(result, getLog());
+    }
+
+    /** What it said, or what it is when it said nothing — not every refusal carries a message. */
+    private static String said(Throwable refusal) {
+        return refusal.getMessage() != null ? refusal.getMessage() : refusal.toString();
     }
 
     /**
@@ -137,13 +160,14 @@ public class SoutherCompileMojo extends AbstractMojo {
         for (Dependency declared : project.getDependencies()) {
             if (RUNTIME_GROUP.equals(declared.getGroupId())
                     && RUNTIME_ARTIFACT.equals(declared.getArtifactId())) {
-                if (version.equals(declared.getVersion())) {
-                    return;
+                if (!version.equals(declared.getVersion())) {
+                    throw new MojoExecutionException("this project declares " + RUNTIME_ARTIFACT
+                            + " " + declared.getVersion() + " and compiles with Souther " + version
+                            + ". Generated code calls the runtime of the Souther that produced it, "
+                            + "so those are one version.");
                 }
-                throw new MojoExecutionException("this project declares " + RUNTIME_ARTIFACT + " "
-                        + declared.getVersion() + " and compiles with Souther " + version
-                        + ". Generated code calls the runtime of the Souther that produced it, so "
-                        + "those are one version.");
+                atAScopeThatTravels(declared);
+                return;
             }
         }
         throw new MojoExecutionException("this project compiles a Souther model and its pom does "
@@ -153,6 +177,28 @@ public class SoutherCompileMojo extends AbstractMojo {
                 + "this project would get it.");
     }
 
+    /**
+     * That the runtime is declared where the projects depending on this one will see it.
+     *
+     * <p>The check above is for them, and a scope is what decides whether they get it at all:
+     * {@code provided} and {@code test} reach none of them, and {@code runtime} reaches them only
+     * when the code runs — while a project importing this model compiles against classes whose
+     * signatures name the runtime. Declared in any of those the pom passes the check and the
+     * downstream build fails, which is the failure the check is here to move upstream.
+     */
+    private void atAScopeThatTravels(Dependency declared) throws MojoExecutionException {
+        String scope = declared.getScope();
+        if (scope == null || scope.isBlank() || TRAVELLING_SCOPE.equals(scope)) {
+            return;
+        }
+        throw new MojoExecutionException("this project declares " + RUNTIME_ARTIFACT + " at " + scope
+                + " scope. A project depending on this one compiles against the classes this model "
+                + "generates, and their signatures name the runtime — at " + scope + " scope it "
+                + "does not reach that build. Declare it at " + TRAVELLING_SCOPE + " scope, which "
+                + "is what leaving the scope out gives you.");
+    }
+
     private static final String RUNTIME_GROUP = "org.souther-lang";
     private static final String RUNTIME_ARTIFACT = "souther-runtime";
+    private static final String TRAVELLING_SCOPE = "compile";
 }
