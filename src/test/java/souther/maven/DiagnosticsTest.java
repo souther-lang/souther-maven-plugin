@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -62,6 +63,24 @@ class DiagnosticsTest {
         assertEquals(2, log.errors.size());
         assertTrue(stopped.getMessage().contains("2"), stopped.getMessage());
         assertTrue(!stopped.getMessage().contains("E1504"), stopped.getMessage());
+    }
+
+    /**
+     * A result says the build may not go on and that the compile had something to say; it does not
+     * say that any of it was an error. A driver that stops a build over warnings alone, or over a
+     * severity added after this plugin was written, gets counted here as none — and the one line the
+     * reader is left with says the build stopped over nothing.
+     */
+    @Test
+    void aBuildStoppedWithNoErrorAmongTheDiagnosticsIsNotReportedAsNoneAtAll() {
+        Recording log = new Recording();
+        BuildResult failed = new BuildResult(false, List.of(
+                new BuildDiagnostic(Severity.WARNING, "E2011 not discharged")));
+
+        MojoFailureException stopped = assertThrows(MojoFailureException.class,
+                () -> Diagnostics.report(failed, log));
+
+        assertFalse(stopped.getMessage().contains("0"), stopped.getMessage());
     }
 
     /** Records what reached the log, which is the whole of what this has to do. */

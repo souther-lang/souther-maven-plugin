@@ -30,6 +30,23 @@ final class SoutherRelease {
         } catch (IOException e) {
             throw new UncheckedIOException("unreadable " + RESOURCE, e);
         }
-        return properties.getProperty("souther.version", "");
+        return stated(properties);
+    }
+
+    /**
+     * The version {@code properties} states, refusing one that states none.
+     *
+     * <p>A file that is there and says nothing is the same mistake as one that is not there: answered
+     * with an empty string it becomes the version a build compiles with, and what the reader gets is
+     * a runtime to declare with nothing after the colon, or a resolution failure for an artifact
+     * whose version is nothing.
+     */
+    static String stated(Properties properties) {
+        String version = properties.getProperty("souther.version");
+        if (version == null || version.isBlank()) {
+            throw new IllegalStateException(
+                    "this plugin was built without a souther.version in " + RESOURCE);
+        }
+        return version;
     }
 }

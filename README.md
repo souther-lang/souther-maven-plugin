@@ -46,6 +46,10 @@ nothing depending on your project would get it — the failure would move downst
 no Souther in it. If it is missing or is a different Souther, the build stops and says which version
 to write.
 
+Leave the scope out. A project depending on yours compiles against the classes your model generates,
+and their signatures name the runtime; at `provided`, `test` or `runtime` scope it does not reach
+that build, which is the failure this check exists to keep upstream.
+
 ## Importing another project's model
 
 An ordinary dependency is all it takes. The module another project compiled is read from its
@@ -82,7 +86,7 @@ release needs no plugin release unless the build protocol moves with it.
 
 | Parameter | Property | Default |
 |---|---|---|
-| `sourceDirectory` | `souther.sourceDirectory` | `${project.basedir}/src/main/souther` |
+| `sourceDirectories` | `souther.sourceDirectories` | `${project.basedir}/src/main/souther` |
 | `southerVersion` | `souther.version` | the Souther this release was verified against |
 | `languageTag` | `souther.lang` | what a command line naming none gets |
 

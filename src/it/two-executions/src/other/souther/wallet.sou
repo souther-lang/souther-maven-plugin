@@ -1,0 +1,3 @@
+module shared.wallet exposing ( Balance )
+
+data Balance = Int

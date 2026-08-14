@@ -2,7 +2,10 @@ package souther.maven;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Properties;
+
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -20,5 +23,19 @@ class SoutherReleaseTest {
                 "an unfiltered placeholder reaches a build as an artifact that cannot resolve: "
                         + verified);
         assertTrue(verified.contains("."), verified);
+    }
+
+    /**
+     * A properties file that is there and says nothing is the same mistake as one that is not there,
+     * and has to fail the same way. Answered with an empty string it becomes the version a build
+     * compiles with: the project is told to declare a runtime with no version after the colon, or
+     * Maven is asked to resolve an artifact whose version is nothing.
+     */
+    @Test
+    void aPropertiesFileWithNoVersionInItIsAsMuchOfAFailureAsOneThatIsNotThere() {
+        IllegalStateException failed = assertThrows(IllegalStateException.class,
+                () -> SoutherRelease.stated(new Properties()));
+
+        assertTrue(failed.getMessage().contains("souther.version"), failed.getMessage());
     }
 }

@@ -1,0 +1,5 @@
+module app.orders exposing ( Order )
+
+import shared.money ( Amount )
+
+data Order = { total: Amount }
