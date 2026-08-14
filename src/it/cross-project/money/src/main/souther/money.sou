@@ -1,0 +1,4 @@
+module shared.money exposing ( Amount )
+
+data Amount = Int
+    invariant value >= 0

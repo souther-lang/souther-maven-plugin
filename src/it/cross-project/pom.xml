@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Two projects, as two projects would be built: one compiles a module and publishes its classes, the
+  other imports it and is told nothing beyond its ordinary compile classpath. That is what
+  cross-project import (ADR-0063) is for, and what a Souther library is published for.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>org.souther-lang.it</groupId>
+    <artifactId>cross-project</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <modules>
+        <module>money</module>
+        <module>orders</module>
+    </modules>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.souther-lang</groupId>
+            <artifactId>souther-runtime</artifactId>
+            <version>@souther.default.version@</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>@project.groupId@</groupId>
+                <artifactId>@project.artifactId@</artifactId>
+                <version>@project.version@</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

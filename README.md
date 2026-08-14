@@ -46,6 +46,19 @@ nothing depending on your project would get it — the failure would move downst
 no Souther in it. If it is missing or is a different Souther, the build stops and says which version
 to write.
 
+## Importing another project's model
+
+An ordinary dependency is all it takes. The module another project compiled is read from its
+classes, so nothing has to be configured and no `.sou` is shared:
+
+```text
+module app.orders exposing ( Order )
+
+import shared.money ( Amount )
+
+data Order = { total: Amount }
+```
+
 ## Choosing a Souther
 
 A plugin release is verified against one Souther, and that is what a project naming no version gets.
