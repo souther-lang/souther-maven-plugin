@@ -1,0 +1,27 @@
+# Build output
+target/
+*.class
+
+# Clojure tooling
+.cpcache/
+.clj-kondo/
+.lsp/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# OS
+.DS_Store
+
+# What each test class took last time, which surefire hands the forks their work by.
+# Beside the module rather than under target/, so it outlives a clean.
+.surefire-*
+
+# Scratch
+/tmp/
+*.log
