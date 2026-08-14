@@ -2,9 +2,9 @@ package souther.maven;
 
 import souther.build.BuildRequest;
 import souther.build.BuildResult;
-import souther.build.SoutherBuildDriver;
+import souther.build.DriverLoader;
+import souther.build.Toolchain;
 
-import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -91,10 +91,6 @@ public class SoutherCompileMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project}", readonly = true, required = true)
     MavenProject project;
 
-    /** Which build this run belongs to, which is how long a toolchain it opens is worth keeping. */
-    @Parameter(defaultValue = "${session}", readonly = true)
-    MavenSession session;
-
     /** How the toolchain is found. Maven's, unless a test has put its own here. */
     ToolchainResolver toolchain;
 
@@ -130,29 +126,22 @@ public class SoutherCompileMojo extends AbstractMojo {
         declaresTheRuntimeOf(version);
         ToolchainResolver resolver = toolchain != null ? toolchain
                 : new AetherToolchainResolver(repositorySystem, repositorySession, remoteRepositories);
-        List<Path> jars = resolver.resolve(version);
-        SoutherBuildDriver driver;
-        try {
-            driver = Toolchains.of(session, version, jars).driver();
-        } catch (RuntimeException e) {
-            // What was resolved is not a Souther this plugin can drive: it states another protocol,
-            // it declares a driver that is not there, it cannot be read. Every one of them said
-            // against the version that was asked for — the message on its own names neither the
-            // project's choice nor where it came from. All of them arrive as exceptions: what a
-            // service declaration raises as an Error is the build API's to turn into one, so that
-            // this catch is all a plugin has to write.
-            throw new MojoExecutionException("Souther " + version + ": " + said(e), e);
-        }
         BuildResult result;
-        try {
-            result = driver.compile(new BuildRequest(
+        // Opened for this compile and given back after it. Held any longer it would have to be held
+        // by something, and the only thing here that outlives a goal run is the JVM — which under a
+        // daemon or an IDE outlives the build too. What that would buy is the compiler's classes
+        // read once for a reactor rather than once per module, measured at about a tenth of a second
+        // a module; what it would cost is a toolchain whose owner nothing here can name.
+        try (Toolchain souther = DriverLoader.open(resolver.resolve(version))) {
+            result = souther.driver().compile(new BuildRequest(
                     sources, classPath, outputDirectory.toPath(), stateDirectory.toPath(),
                     languageTag));
         } catch (RuntimeException e) {
-            // What a compile raises rather than reports: the interface it is driven through covers
-            // what the model was wrong about, and leaves an output directory that cannot be written
-            // to be thrown. Named against the version for the same reason the rest of this is —
-            // otherwise Maven has it as an internal error in this plugin, which it is not.
+            // Three things at once, and one message for them: what was resolved is not a Souther
+            // this plugin can drive, or the compile raised rather than reported — an output
+            // directory it cannot write — or the jars would not go back. Each says the version that
+            // was asked for, because on its own none of them names the project's choice or where it
+            // came from, and Maven would have it as an internal error in this plugin.
             throw new MojoExecutionException("Souther " + version + ": " + said(e), e);
         }
         Diagnostics.report(result, getLog());
