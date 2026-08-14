@@ -4,6 +4,7 @@ import souther.build.BuildRequest;
 import souther.build.BuildResult;
 import souther.build.SoutherBuildDriver;
 
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -34,8 +35,8 @@ import java.util.ServiceConfigurationError;
  */
 @Mojo(name = "compile",
       // Before javac rather than with it: the generated classes go where javac reads, and Java
-      // written beside the model can only name it if they are there first. Bound to `compile`, the
-      // packaging's own compiler execution is declared before this one and runs before it.
+      // written beside the model can only name it if they are there first. The phase before the one
+      // the packaging binds its own compiler execution to is what puts them there in time.
       defaultPhase = LifecyclePhase.PROCESS_SOURCES,
       requiresDependencyResolution = ResolutionScope.COMPILE,
       threadSafe = true)
@@ -91,6 +92,10 @@ public class SoutherCompileMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project}", readonly = true, required = true)
     MavenProject project;
 
+    /** Which build this run belongs to, which is how long a toolchain it opens is worth keeping. */
+    @Parameter(defaultValue = "${session}", readonly = true)
+    MavenSession session;
+
     /** How the toolchain is found. Maven's, unless a test has put its own here. */
     ToolchainResolver toolchain;
 
@@ -129,7 +134,7 @@ public class SoutherCompileMojo extends AbstractMojo {
         List<Path> jars = resolver.resolve(version);
         SoutherBuildDriver driver;
         try {
-            driver = Toolchains.of(version, jars).driver();
+            driver = Toolchains.of(session, version, jars).driver();
         } catch (RuntimeException | ServiceConfigurationError e) {
             // What was resolved is not a Souther this plugin can drive: it states another protocol,
             // it declares a driver that is not there, it cannot be read. Every one of them said
@@ -137,9 +142,18 @@ public class SoutherCompileMojo extends AbstractMojo {
             // project's choice nor where it came from.
             throw new MojoExecutionException("Souther " + version + ": " + said(e), e);
         }
-        BuildResult result = driver.compile(new BuildRequest(
-                sources, classPath, outputDirectory.toPath(), stateDirectory.toPath(),
-                languageTag));
+        BuildResult result;
+        try {
+            result = driver.compile(new BuildRequest(
+                    sources, classPath, outputDirectory.toPath(), stateDirectory.toPath(),
+                    languageTag));
+        } catch (RuntimeException e) {
+            // What a compile raises rather than reports: the interface it is driven through covers
+            // what the model was wrong about, and leaves an output directory that cannot be written
+            // to be thrown. Named against the version for the same reason the rest of this is —
+            // otherwise Maven has it as an internal error in this plugin, which it is not.
+            throw new MojoExecutionException("Souther " + version + ": " + said(e), e);
+        }
         Diagnostics.report(result, getLog());
     }
 
