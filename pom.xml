@@ -242,8 +242,9 @@
     </build>
     <profiles>
         <!-- Activate for a Central release: `mvn -Prelease deploy`. Attaches sources and javadoc,
-             GPG-signs every artifact, and publishes to the Sonatype Central Portal
-             (autoPublish=false, so the bundle is reviewed in the Portal before release). Normal
+             GPG-signs every artifact, and publishes to the Sonatype Central Portal, which releases
+             it without waiting to be told again. What holds a bad release back is the build: the
+             tests, and the integration tests that run this goal in real Maven builds. Normal
              build/test is untouched. -->
         <profile>
             <id>release</id>
@@ -301,7 +302,7 @@
                         <extensions>true</extensions>
                         <configuration>
                             <publishingServerId>central</publishingServerId>
-                            <autoPublish>false</autoPublish>
+                            <autoPublish>true</autoPublish>
                         </configuration>
                     </plugin>
                 </plugins>
