@@ -6,7 +6,7 @@
 
     <groupId>org.souther-lang</groupId>
     <artifactId>souther-maven-plugin</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
     <packaging>maven-plugin</packaging>
 
     <name>Souther Maven Plugin</name>
@@ -51,7 +51,7 @@
         <!-- The Souther this plugin release is verified against: what a project that names no
              version gets, and what the tests load. One property, so the two cannot differ — a
              default nothing was tested against is not one. -->
-        <souther.default.version>0.1.0-rc5</souther.default.version>
+        <souther.default.version>0.1.0</souther.default.version>
     </properties>
 
     <dependencyManagement>
