@@ -16,7 +16,7 @@ replaces that.
     <plugin>
       <groupId>org.souther-lang</groupId>
       <artifactId>souther-maven-plugin</artifactId>
-      <version>0.1.0</version>
+      <version>0.1.1</version>
       <executions>
         <execution>
           <goals><goal>compile</goal></goals>
@@ -37,7 +37,7 @@ Your pom also declares the runtime that generated code calls:
 <dependency>
   <groupId>org.souther-lang</groupId>
   <artifactId>souther-runtime</artifactId>
-  <version>0.1.0-rc5</version>
+  <version>0.1.0</version>
 </dependency>
 ```
 
@@ -70,11 +70,11 @@ To compile with another:
 
 ```xml
 <configuration>
-  <southerVersion>0.1.0-rc6</southerVersion>
+  <southerVersion>0.1.0-rc5</southerVersion>
 </configuration>
 ```
 
-or `-Dsouther.version=0.1.0-rc6` for one build.
+or `-Dsouther.version=0.1.0-rc5` for one build.
 
 Move the runtime dependency with it. Generated code calls the runtime of the Souther that produced
 it, so the two are one version — declared apart, the build stops and says which one it was compiling
