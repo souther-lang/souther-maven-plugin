@@ -30,6 +30,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class SoutherCompileMojoTest {
 
+    /**
+     * The version the project under test declares its runtime at. Any string does: what resolves a
+     * toolchain is stood in for here, so what these tests are about is which version the goal asks
+     * for and what it says when two of them disagree — not which Souther that is.
+     */
+    private static final String DECLARED = "1.2.3";
+
     @Test
     void aProjectWhoseSourcesAreOnlySouGetsItsClassesWhereTheJarReadsThem(@TempDir Path dir)
             throws Exception {
@@ -174,22 +181,47 @@ class SoutherCompileMojoTest {
         mojo.execute();
     }
 
+    /**
+     * A project has to declare the runtime its generated code calls, and generated code calls the
+     * runtime of the Souther that produced it — so that declaration is the version, and a project
+     * names no second one. Nothing here states a Souther on the project's behalf, which is what
+     * keeps a Souther release from leaving this plugin behind.
+     */
     @Test
-    void aProjectThatNamesNoVersionGetsTheOneThisPluginWasVerifiedAgainst(@TempDir Path dir)
+    void aProjectThatNamesNoVersionCompilesWithTheRuntimeItDeclares(@TempDir Path dir)
             throws Exception {
         Path sources = Files.createDirectories(dir.resolve("src/main/souther"));
         Files.writeString(sources.resolve("money.sou"), "data Amount = Int\n");
         List<String> asked = new ArrayList<>();
 
         SoutherCompileMojo mojo = mojo(sources, dir.resolve("target/classes"));
-        mojo.southerVersion = null;
+        mojo.project = projectDeclaringRuntime("0.9.9-whatever-it-says");
         mojo.toolchain = version -> {
             asked.add(version);
             return resolvedToolchain();
         };
         mojo.execute();
 
-        assertEquals(List.of(SoutherRelease.verified()), asked);
+        assertEquals(List.of("0.9.9-whatever-it-says"), asked);
+    }
+
+    /**
+     * A declaration with no version and no dependency management behind it. Left to resolution it
+     * would fail further along and about the runtime, and what the reader has to fix is the one
+     * declaration this plugin reads a version from.
+     */
+    @Test
+    void aRuntimeDeclaredWithoutAVersionIsRefusedHere(@TempDir Path dir) throws IOException {
+        Path sources = Files.createDirectories(dir.resolve("src/main/souther"));
+        Files.writeString(sources.resolve("money.sou"), "data Amount = Int\n");
+
+        SoutherCompileMojo mojo = mojo(sources, dir.resolve("target/classes"));
+        mojo.project = projectDeclaringRuntime(null);
+
+        MojoExecutionException failed = assertThrows(MojoExecutionException.class, mojo::execute);
+
+        assertTrue(failed.getMessage().contains("souther-runtime"), failed.getMessage());
+        assertTrue(failed.getMessage().contains("version"), failed.getMessage());
     }
 
     /**
@@ -203,7 +235,7 @@ class SoutherCompileMojoTest {
         Files.writeString(sources.resolve("money.sou"), "data Amount = Int\n");
 
         SoutherCompileMojo mojo = mojo(sources, dir.resolve("target/classes"));
-        mojo.southerVersion = "9.9.9";
+        mojo.project = projectDeclaringRuntime("9.9.9");
         mojo.toolchain = version -> List.of(dir.resolve("nothing-here"));
 
         MojoExecutionException failed =
@@ -229,23 +261,7 @@ class SoutherCompileMojoTest {
         MojoExecutionException failed = assertThrows(MojoExecutionException.class, mojo::execute);
 
         assertTrue(failed.getMessage().contains("souther-runtime"), failed.getMessage());
-        assertTrue(failed.getMessage().contains(SoutherRelease.verified()), failed.getMessage());
-    }
-
-    /** Declared, but not the runtime belonging to the Souther this compiles with. */
-    @Test
-    void aRuntimeOfAnotherSoutherIsReportedAgainstTheOneBeingCompiledWith(@TempDir Path dir)
-            throws IOException {
-        Path sources = Files.createDirectories(dir.resolve("src/main/souther"));
-        Files.writeString(sources.resolve("money.sou"), "data Amount = Int\n");
-
-        SoutherCompileMojo mojo = mojo(sources, dir.resolve("target/classes"));
-        mojo.project = projectDeclaringRuntime("0.0.1-something-else");
-
-        MojoExecutionException failed = assertThrows(MojoExecutionException.class, mojo::execute);
-
-        assertTrue(failed.getMessage().contains("0.0.1-something-else"), failed.getMessage());
-        assertTrue(failed.getMessage().contains(SoutherRelease.verified()), failed.getMessage());
+        assertTrue(failed.getMessage().contains("where the version comes from"), failed.getMessage());
     }
 
     /**
@@ -264,7 +280,7 @@ class SoutherCompileMojoTest {
         Files.writeString(sources.resolve("money.sou"), "data Amount = Int\n");
 
         SoutherCompileMojo mojo = mojo(sources, dir.resolve("target/classes"));
-        mojo.project = projectDeclaringRuntime(SoutherRelease.verified(), scope);
+        mojo.project = projectDeclaringRuntime(DECLARED, scope);
 
         MojoExecutionException failed = assertThrows(MojoExecutionException.class, mojo::execute);
 
@@ -283,7 +299,7 @@ class SoutherCompileMojoTest {
         Path classes = dir.resolve("target/classes");
 
         SoutherCompileMojo mojo = mojo(sources, classes);
-        mojo.project = projectDeclaringRuntime(SoutherRelease.verified(), "compile");
+        mojo.project = projectDeclaringRuntime(DECLARED, "compile");
         mojo.execute();
 
         assertTrue(Files.exists(classes.resolve("shared/money/Amount.class")));
@@ -309,7 +325,7 @@ class SoutherCompileMojoTest {
 
         MojoExecutionException failed = assertThrows(MojoExecutionException.class, mojo::execute);
 
-        assertTrue(failed.getMessage().contains(SoutherRelease.verified()), failed.getMessage());
+        assertTrue(failed.getMessage().contains(DECLARED), failed.getMessage());
     }
 
     /**
@@ -330,7 +346,6 @@ class SoutherCompileMojoTest {
                 "nowhere.NoSuchDriver\n");
 
         SoutherCompileMojo mojo = mojo(sources, dir.resolve("target/classes"));
-        mojo.southerVersion = "9.9.9";
         mojo.project = projectDeclaringRuntime("9.9.9");
         mojo.toolchain = version -> List.of(broken);
 
@@ -347,8 +362,7 @@ class SoutherCompileMojoTest {
         mojo.stateDirectory = classes.resolveSibling("souther").toFile();
         mojo.compileClasspathElements = new ArrayList<>();
         mojo.languageTag = "en";
-        mojo.southerVersion = SoutherRelease.verified();
-        mojo.project = projectDeclaringRuntime(SoutherRelease.verified());
+        mojo.project = projectDeclaringRuntime(DECLARED);
         mojo.toolchain = version -> resolvedToolchain();
         return mojo;
     }

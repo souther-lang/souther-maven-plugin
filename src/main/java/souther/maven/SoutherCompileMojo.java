@@ -75,10 +75,6 @@ public class SoutherCompileMojo extends AbstractMojo {
     @Parameter(property = "souther.lang")
     String languageTag;
 
-    /** The Souther to compile with. Unset is the one this plugin release was verified against. */
-    @Parameter(property = "souther.version")
-    String southerVersion;
-
     @Component
     RepositorySystem repositorySystem;
 
@@ -120,10 +116,9 @@ public class SoutherCompileMojo extends AbstractMojo {
                 classPath.add(entry);
             }
         }
-        String version = southerVersion == null || southerVersion.isBlank()
-                ? SoutherRelease.verified()
-                : southerVersion;
-        declaresTheRuntimeOf(version);
+        Dependency runtime = declaredRuntime();
+        String version = versionOf(runtime);
+        atAScopeThatTravels(runtime);
         ToolchainResolver resolver = toolchain != null ? toolchain
                 : new AetherToolchainResolver(repositorySystem, repositorySession, remoteRepositories);
         BuildResult result;
@@ -153,32 +148,46 @@ public class SoutherCompileMojo extends AbstractMojo {
     }
 
     /**
-     * That the pom declares the runtime the generated code calls, at the version of the Souther
-     * that generates it.
+     * The runtime the generated code calls, as this project's pom declares it.
      *
-     * <p>Checked rather than added. What a plugin adds is not in the pom this project publishes, so
-     * nothing depending on this project would get it — the failure would move downstream, to a
-     * build that has no Souther in it at all.
+     * <p>Declared by the project rather than added by the plugin. What a plugin adds is not in the
+     * pom this project publishes, so nothing depending on this project would get it — the failure
+     * would move downstream, to a build that has no Souther in it at all. Since the pom has to name
+     * it, that declaration is also where the Souther to compile with is read from, and this plugin
+     * states no version of its own.
      */
-    private void declaresTheRuntimeOf(String version) throws MojoExecutionException {
+    private Dependency declaredRuntime() throws MojoExecutionException {
         for (Dependency declared : project.getDependencies()) {
             if (RUNTIME_GROUP.equals(declared.getGroupId())
                     && RUNTIME_ARTIFACT.equals(declared.getArtifactId())) {
-                if (!version.equals(declared.getVersion())) {
-                    throw new MojoExecutionException("this project declares " + RUNTIME_ARTIFACT
-                            + " " + declared.getVersion() + " and compiles with Souther " + version
-                            + ". Generated code calls the runtime of the Souther that produced it, "
-                            + "so those are one version.");
-                }
-                atAScopeThatTravels(declared);
-                return;
+                return declared;
             }
         }
         throw new MojoExecutionException("this project compiles a Souther model and its pom does "
                 + "not declare the runtime that model's code calls. Add " + RUNTIME_GROUP + ":"
-                + RUNTIME_ARTIFACT + ":" + version + ". This plugin cannot add it for you: what it "
-                + "added would not be in the pom this project publishes, and nothing depending on "
-                + "this project would get it.");
+                + RUNTIME_ARTIFACT + " at the Souther to compile with — that declaration is where "
+                + "the version comes from. This plugin cannot add it for you: what it added would "
+                + "not be in the pom this project publishes, and nothing depending on this project "
+                + "would get it.");
+    }
+
+    /**
+     * What that declaration says the version is.
+     *
+     * <p>A managed version arrives here already, Maven having injected it while it built the model,
+     * so what is left to refuse is a declaration no dependency management answers for. Left to
+     * resolution it would fail further along and about the runtime, which is not what a reader has
+     * to fix.
+     */
+    private static String versionOf(Dependency runtime) throws MojoExecutionException {
+        String version = runtime.getVersion();
+        if (version == null || version.isBlank()) {
+            throw new MojoExecutionException("this project declares " + RUNTIME_ARTIFACT
+                    + " without a version and nothing manages one for it. That declaration is the "
+                    + "Souther this model compiles with, so it is the one thing that has to name a "
+                    + "version.");
+        }
+        return version;
     }
 
     /**
