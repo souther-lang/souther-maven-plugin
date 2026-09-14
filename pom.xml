@@ -6,7 +6,7 @@
 
     <groupId>org.souther-lang</groupId>
     <artifactId>souther-maven-plugin</artifactId>
-    <version>0.1.1</version>
+    <version>0.2.0</version>
     <packaging>maven-plugin</packaging>
 
     <name>Souther Maven Plugin</name>
@@ -48,10 +48,11 @@
         <maven.version>3.9.9</maven.version>
         <maven.resolver.version>1.9.22</maven.resolver.version>
         <junit.version>6.1.2</junit.version>
-        <!-- The Souther this plugin release is verified against: what a project that names no
-             version gets, and what the tests load. One property, so the two cannot differ — a
-             default nothing was tested against is not one. -->
-        <souther.default.version>0.1.0</souther.default.version>
+        <!-- The Souther this plugin is tested against: what the unit tests load and what the
+             projects under src/it declare. It reaches no artifact — a project's own pom names the
+             Souther it compiles with — so moving it is a decision about this build's tests and not
+             about anything a user gets. -->
+        <souther.tested.version>0.1.0</souther.tested.version>
     </properties>
 
     <dependencyManagement>
@@ -116,20 +117,12 @@
         <dependency>
             <groupId>org.souther-lang</groupId>
             <artifactId>souther-build-driver</artifactId>
-            <version>${souther.default.version}</version>
+            <version>${souther.tested.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
 
     <build>
-        <!-- So the Souther version this release was verified against is written into the artifact
-             rather than named in the code twice. A test refuses an unfiltered placeholder. -->
-        <resources>
-            <resource>
-                <directory>src/main/resources</directory>
-                <filtering>true</filtering>
-            </resource>
-        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -180,8 +173,8 @@
                                  not among this project's dependencies to be copied over with them.
                                  The projects under src/it name the runtime themselves. -->
                             <extraArtifacts>
-                                <extraArtifact>org.souther-lang:souther-build-driver:${souther.default.version}</extraArtifact>
-                                <extraArtifact>org.souther-lang:souther-runtime:${souther.default.version}</extraArtifact>
+                                <extraArtifact>org.souther-lang:souther-build-driver:${souther.tested.version}</extraArtifact>
+                                <extraArtifact>org.souther-lang:souther-runtime:${souther.tested.version}</extraArtifact>
                             </extraArtifacts>
                         </configuration>
                     </execution>

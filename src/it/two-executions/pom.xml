@@ -19,7 +19,7 @@
         <dependency>
             <groupId>org.souther-lang</groupId>
             <artifactId>souther-runtime</artifactId>
-            <version>@souther.default.version@</version>
+            <version>@souther.tested.version@</version>
         </dependency>
     </dependencies>
 
