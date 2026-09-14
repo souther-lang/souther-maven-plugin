@@ -52,7 +52,7 @@
              projects under src/it declare. It reaches no artifact — a project's own pom names the
              Souther it compiles with — so moving it is a decision about this build's tests and not
              about anything a user gets. -->
-        <souther.tested.version>0.1.0</souther.tested.version>
+        <souther.tested.version>0.2.0</souther.tested.version>
     </properties>
 
     <dependencyManagement>
