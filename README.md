@@ -37,7 +37,7 @@ Your pom also declares the runtime that generated code calls:
 <dependency>
   <groupId>org.souther-lang</groupId>
   <artifactId>souther-runtime</artifactId>
-  <version>0.1.0</version>
+  <version>0.2.0</version>
 </dependency>
 ```
 
@@ -73,7 +73,7 @@ lets one build name another Souther:
 
 ```xml
 <properties>
-  <souther.version>0.1.0</souther.version>
+  <souther.version>0.2.0</souther.version>
 </properties>
 
 <dependency>
